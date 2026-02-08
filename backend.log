@@ -1,0 +1,2 @@
+nohup: girdi yok sayılıyor
+nohup: 'venv/bin/uvicorn' komutunu çalıştırırken hata: Böyle bir dosya ya da dizin yok
