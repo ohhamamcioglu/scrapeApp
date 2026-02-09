@@ -62,8 +62,10 @@ def get_product_history(product_id):
     db = get_db()
     collection = db[COLLECTION_NAME]
     
-    # Aggregation to unwind data and filter by product_id
+    # Aggregation to find, unwind and filter by product_id
+    # Optimization: Match documents containing the ID *before* unwinding
     pipeline = [
+        {"$match": {"data.id": product_id}},
         {"$unwind": "$data"},
         {"$match": {"data.id": product_id}},
         {"$project": {
@@ -72,13 +74,17 @@ def get_product_history(product_id):
             "br_price": "$data.br.price",
             "lowest_competitor": "$data.Lowest_Competitor_GBP",
             "competitor_name": "$data.Competitor_Name",
-            # We can include specific competitors if needed
-            "rd_price": "$data.rd.price",
-            "deb_price": "$data.deb.price",
-            "lr_price": "$data.lr.price"
+            "rd": "$data.rd",
+            "deb": "$data.deb",
+            "lr": "$data.lr",
+            "inc": "$data.inc"
         }},
         {"$sort": {"timestamp": 1}}
     ]
     
-    history = list(collection.aggregate(pipeline))
-    return history
+    try:
+        history = list(collection.aggregate(pipeline))
+        return history
+    except Exception as e:
+        print(f"Error fetching history for {product_id}: {e}")
+        return []

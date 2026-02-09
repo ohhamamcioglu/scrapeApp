@@ -43,18 +43,28 @@ REPORT_SCRIPT = "generate_json_report.py"
 
 def run_scrapers_task():
     logger.info("Starting scrape job...")
+    import sys
+    python_exec = sys.executable 
+
     for script in SCRIPTS:
         try:
-            logger.info(f"Running {script}...")
-            python_exec = "venv/bin/python" if os.path.exists("venv/bin/python") else "python"
-            subprocess.run([python_exec, script], check=True)
+            logger.info(f"Running {script} with {python_exec}...")
+            # Use sys.executable to ensure we use the same python running the app
+            result = subprocess.run([python_exec, script], capture_output=True, text=True)
+            if result.returncode != 0:
+                logger.error(f"Error running {script}: {result.stderr}")
+            else:
+                logger.info(f"Finished {script}: {result.stdout[:100]}...") # Log first 100 chars
         except Exception as e:
-            logger.error(f"Error running {script}: {e}")
+            logger.error(f"Exception running {script}: {e}")
 
     try:
-        logger.info(f"Generating report...")
-        python_exec = "venv/bin/python" if os.path.exists("venv/bin/python") else "python"
-        subprocess.run([python_exec, REPORT_SCRIPT], check=True)
+        logger.info(f"Generating report with {python_exec}...")
+        result = subprocess.run([python_exec, REPORT_SCRIPT], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"Error generating report: {result.stderr}")
+        else:
+            logger.info(f"Report generated: {result.stdout[:100]}...")
     except Exception as e:
         logger.error(f"Error generating report: {e}")
     logger.info("Scrape job finished.")
