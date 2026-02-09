@@ -59,15 +59,21 @@ def get_product_history(product_id):
     Retrieves the price history for a specific product ID.
     Returns a list of snapshots: [{timestamp, br_price, lowest_competitor_price, competitors: []}]
     """
+    import urllib.parse
+    # Ensure ID is decoded
+    decoded_id = urllib.parse.unquote(product_id)
+    
     db = get_db()
     collection = db[COLLECTION_NAME]
     
     # Aggregation to find, unwind and filter by product_id
     # Optimization: Match documents containing the ID *before* unwinding
+    # Use exact match first for speed, if empty, maybe try regex? 
+    # For now, stick to exact match but ensure decoding is correct.
     pipeline = [
-        {"$match": {"data.id": product_id}},
+        {"$match": {"data.id": decoded_id}},
         {"$unwind": "$data"},
-        {"$match": {"data.id": product_id}},
+        {"$match": {"data.id": decoded_id}},
         {"$project": {
             "_id": 0,
             "timestamp": 1,
@@ -86,5 +92,5 @@ def get_product_history(product_id):
         history = list(collection.aggregate(pipeline))
         return history
     except Exception as e:
-        print(f"Error fetching history for {product_id}: {e}")
+        print(f"Error fetching history for {decoded_id}: {e}")
         return []
