@@ -14,9 +14,23 @@ try:
     df_debenhams = pd.read_csv("debenhams_products.csv") 
     df_loverugs = pd.read_csv("loverugs_products.csv") 
     df_incredible = pd.read_csv("incredible_products.csv")
+    df_hilmi = pd.read_csv("hilmi_prices.csv")
 except Exception as e:
     print(f"Error loading CSVs: {e}")
     exit()
+
+# --- Pre-processing Hilmi Prices ---
+print("Processing Hilmi Prices...")
+hilmi_prices_map = {}
+if 'SKU' in df_hilmi.columns and 'Supplier Price' in df_hilmi.columns:
+    for _, row in df_hilmi.iterrows():
+        sku = str(row['SKU']).strip().upper()
+        try:
+            price = float(str(row['Supplier Price']).replace(',', '').strip())
+            hilmi_prices_map[sku] = price
+        except:
+            continue
+
 
 # --- Normalization Helpers ---
 
@@ -238,6 +252,28 @@ for idx, b_row in df_boutique.iterrows():
     else:
         item_data["inc"] = None
         item_data["Incredible_Price_USD"] = None
+
+    # --- Hilmi (Supplier) Price Match ---
+    # Boutique has 'sku' column? Let's verify and use it.
+    b_sku = str(b_row.get('sku', '')).strip().upper()
+    hilmi_price = None
+    if b_sku in hilmi_prices_map:
+        hilmi_price = hilmi_prices_map[b_sku]
+        item_data["supplier_price"] = hilmi_price
+        
+        # Calculate Margin if both prices exist
+        if b_price and hilmi_price and b_price > 0:
+            margin = b_price - hilmi_price
+            margin_percent = (margin / b_price) * 100
+            item_data["margin_gbp"] = round(margin, 2)
+            item_data["margin_percent"] = round(margin_percent, 2)
+        else:
+            item_data["margin_gbp"] = None
+            item_data["margin_percent"] = None
+    else:
+        item_data["supplier_price"] = None
+        item_data["margin_gbp"] = None
+        item_data["margin_percent"] = None
 
     # --- Analysis & Summary ---
     competitors = []

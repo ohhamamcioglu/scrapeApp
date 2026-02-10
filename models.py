@@ -22,6 +22,9 @@ class ProductItem(BaseModel):
     Competitor_Name: Optional[str]
     Price_Difference_GBP: Optional[float]
     Price_Difference_Percent: Optional[float]
+    supplier_price: Optional[float] = None
+    margin_gbp: Optional[float] = None
+    margin_percent: Optional[float] = None
 
 class PriceHistoryItem(BaseModel):
     timestamp: datetime
@@ -31,6 +34,8 @@ class PriceHistoryItem(BaseModel):
     rd_price: Optional[float]
     deb_price: Optional[float]
     lr_price: Optional[float]
+    supplier_price: Optional[float] = None
+    margin_percent: Optional[float] = None
 
 class PaginatedResponse(BaseModel):
     total: int

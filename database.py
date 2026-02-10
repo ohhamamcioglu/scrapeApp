@@ -83,7 +83,9 @@ def get_product_history(product_id):
             "rd": "$data.rd",
             "deb": "$data.deb",
             "lr": "$data.lr",
-            "inc": "$data.inc"
+            "inc": "$data.inc",
+            "supplier_price": "$data.supplier_price",
+            "margin_percent": "$data.margin_percent"
         }},
         {"$sort": {"timestamp": 1}}
     ]
