@@ -254,14 +254,19 @@ for idx, b_row in df_boutique.iterrows():
         item_data["Incredible_Price_USD"] = None
 
     # --- Hilmi (Supplier) Price Match ---
-    # Boutique has 'sku' column? Let's verify and use it.
     b_sku = str(b_row.get('sku', '')).strip().upper()
     hilmi_price = None
     if b_sku in hilmi_prices_map:
         hilmi_price = hilmi_prices_map[b_sku]
-        item_data["supplier_price"] = hilmi_price
+        item_data["hilmi"] = {
+            "price": hilmi_price,
+            "formattedPrice": format_price(hilmi_price),
+            "url": None, # No URL for supplier
+            "image": None,
+            "size": None
+        }
         
-        # Calculate Margin if both prices exist
+        # Calculate Margin
         if b_price and hilmi_price and b_price > 0:
             margin = b_price - hilmi_price
             margin_percent = (margin / b_price) * 100
@@ -271,7 +276,7 @@ for idx, b_row in df_boutique.iterrows():
             item_data["margin_gbp"] = None
             item_data["margin_percent"] = None
     else:
-        item_data["supplier_price"] = None
+        item_data["hilmi"] = None
         item_data["margin_gbp"] = None
         item_data["margin_percent"] = None
 

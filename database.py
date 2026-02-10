@@ -84,7 +84,8 @@ def get_product_history(product_id):
             "deb": "$data.deb",
             "lr": "$data.lr",
             "inc": "$data.inc",
-            "supplier_price": "$data.supplier_price",
+            "hilmi": "$data.hilmi",
+            "hilmi_price": "$data.hilmi.price", # Accessing nested price for history
             "margin_percent": "$data.margin_percent"
         }},
         {"$sort": {"timestamp": 1}}
