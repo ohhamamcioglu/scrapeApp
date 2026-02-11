@@ -152,7 +152,8 @@ for idx, b_row in df_boutique.iterrows():
         },
         "rd": None,
         "deb": None,
-        "lr": None
+        "lr": None,
+        "boutiqrugsNewPrice": None
     }
     
     # --- Rugs Direct Match ---
@@ -253,12 +254,12 @@ for idx, b_row in df_boutique.iterrows():
         item_data["inc"] = None
         item_data["Incredible_Price_USD"] = None
 
-    # --- Hilmi (Supplier) Price Match ---
+    # --- Hilmi (Supplier) Price Match -> renamed to boutiqrugsNewPrice ---
     b_sku = str(b_row.get('sku', '')).strip().upper()
     hilmi_price = None
     if b_sku in hilmi_prices_map:
         hilmi_price = hilmi_prices_map[b_sku]
-        item_data["hilmi"] = {
+        item_data["boutiqrugsNewPrice"] = {
             "price": hilmi_price,
             "formattedPrice": format_price(hilmi_price),
             "url": None, # No URL for supplier
@@ -266,7 +267,7 @@ for idx, b_row in df_boutique.iterrows():
             "size": None
         }
         
-        # Calculate Margin
+        # Calculate Margin based on Original Boutique Price vs Hilmi
         if b_price and hilmi_price and b_price > 0:
             margin = b_price - hilmi_price
             margin_percent = (margin / b_price) * 100
@@ -276,7 +277,7 @@ for idx, b_row in df_boutique.iterrows():
             item_data["margin_gbp"] = None
             item_data["margin_percent"] = None
     else:
-        item_data["hilmi"] = None
+        item_data["boutiqrugsNewPrice"] = None
         item_data["margin_gbp"] = None
         item_data["margin_percent"] = None
 
@@ -290,11 +291,16 @@ for idx, b_row in df_boutique.iterrows():
         min_price, min_comp_name = min(competitors, key=lambda x: x[0])
         item_data["Lowest_Competitor_GBP"] = min_price
         item_data["Competitor_Name"] = min_comp_name
-        item_data["Price_Difference_GBP"] = round(min_price - b_price, 2)
-        if b_price > 0:
-            item_data["Price_Difference_Percent"] = round(((min_price - b_price) / b_price) * 100, 2)
+        
+        # Use boutiqrugsNewPrice as comparison base if available, else original br price
+        comparison_base = item_data["boutiqrugsNewPrice"]["price"] if item_data["boutiqrugsNewPrice"] else b_price
+        
+        if comparison_base:
+            item_data["Price_Difference_GBP"] = round(min_price - comparison_base, 2)
+            item_data["Price_Difference_Percent"] = round(((min_price - comparison_base) / comparison_base) * 100, 2)
         else:
-            item_data["Price_Difference_Percent"] = 0.0
+            item_data["Price_Difference_GBP"] = None
+            item_data["Price_Difference_Percent"] = None
     else:
         item_data["Lowest_Competitor_GBP"] = None
         item_data["Competitor_Name"] = None

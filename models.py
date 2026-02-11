@@ -18,7 +18,7 @@ class ProductItem(BaseModel):
     deb: Optional[CompetitorData]
     lr: Optional[CompetitorData]
     inc: Optional[CompetitorData]
-    hilmi: Optional[CompetitorData]  # Added as requested
+    boutiqrugsNewPrice: Optional[CompetitorData]  # Renamed from hilmi
     Lowest_Competitor_GBP: Optional[float]
     Competitor_Name: Optional[str]
     Price_Difference_GBP: Optional[float]
@@ -34,7 +34,7 @@ class PriceHistoryItem(BaseModel):
     rd_price: Optional[float]
     deb_price: Optional[float]
     lr_price: Optional[float]
-    hilmi_price: Optional[float] = None
+    boutiqrugsNewPrice_price: Optional[float] = None # Renamed
     margin_percent: Optional[float] = None
 
 class PaginatedResponse(BaseModel):
