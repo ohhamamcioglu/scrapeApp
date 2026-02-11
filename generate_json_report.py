@@ -304,18 +304,38 @@ for idx, b_row in df_boutique.iterrows():
     json_output.append(item_data)
 
 # --- Save ---
+import datetime
+import os
+
+# Add metadata to the report
+report_metadata = {
+    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+    "data": json_output
+}
+
+# 1. Save as latest report
 with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
     json.dump(json_output, f, indent=2)
 
-print(f"JSON Report Generated: {OUTPUT_FILE}")
-print(f"Total Items: {len(json_output)}")
+print(f"Latest JSON Report Generated: {OUTPUT_FILE}")
 
-# --- Save to MongoDB ---
+# 2. Append to historical reports file
+HISTORY_FILE = "competitor_analysis_db.reports.json"
+print(f"Updating history in {HISTORY_FILE}...")
 try:
-    from database import save_report_to_db
-    report_id = save_report_to_db(json_output)
-    print(f"Report saved to MongoDB with ID: {report_id}")
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            all_reports = json.load(f)
+    else:
+        all_reports = []
+    
+    all_reports.append(report_metadata)
+    
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(all_reports, f, indent=2)
+    print("History updated successfully.")
 except Exception as e:
-    print(f"Error saving to MongoDB: {e}")
-    # Don't fail the script if DB save fails, just log it
+    print(f"Error updating history JSON: {e}")
+
+print(f"Total Items in this report: {len(json_output)}")
 

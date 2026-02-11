@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import subprocess
 import os
 import logging
-from database import get_latest_report, get_db, COLLECTION_NAME
+from database import get_db, COLLECTION_NAME
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from contextlib import asynccontextmanager
@@ -87,57 +87,8 @@ async def get_products(
     Retrieves paginated product data from the latest report.
     Supports search by product name.
     """
-    db = get_db()
-    collection = db[COLLECTION_NAME]
-    
-    # Get latest report's timestamp first to filter by it
-    latest = collection.find_one({}, sort=[("timestamp", -1)], projection={"_id": 1})
-    if not latest:
-        return {"total": 0, "page": page, "limit": limit, "data": []}
-        
-    latest_id = latest["_id"]
-    
-    # Aggregation Pipeline for Pagination & Search
-    pipeline = [
-        {"$match": {"_id": latest_id}},
-        {"$unwind": "$data"},
-    ]
-    
-    # Search Filter
-    if search:
-        pipeline.append({
-            "$match": {
-                "data.name": {"$regex": search, "$options": "i"} 
-            }
-        })
-    
-    # Pagination
-    pipeline.append({"$skip": (page - 1) * limit})
-    pipeline.append({"$limit": limit})
-    
-    # Project back to clean shape
-    pipeline.append({"$replaceRoot": {"newRoot": "$data"}})
-    
-    data = list(collection.aggregate(pipeline))
-    
-    # Count Total (Separate query for efficiency or second facet)
-    count_pipeline = [
-        {"$match": {"_id": latest_id}},
-        {"$unwind": "$data"}
-    ]
-    if search:
-        count_pipeline.append({"$match": {"data.name": {"$regex": search, "$options": "i"}}})
-    count_pipeline.append({"$count": "total"})
-    
-    count_res = list(collection.aggregate(count_pipeline))
-    total = count_res[0]["total"] if count_res else 0
-    
-    return {
-        "total": total,
-        "page": page,
-        "limit": limit,
-        "data": data
-    }
+    from database import get_paginated_products
+    return get_paginated_products(page=page, limit=limit, search=search)
 
 @app.get("/api/history/{product_id}", response_model=List[PriceHistoryItem], dependencies=[Depends(get_api_key)])
 async def get_history(product_id: str):

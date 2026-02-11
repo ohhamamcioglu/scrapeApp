@@ -1,99 +1,95 @@
 import os
-from pymongo import MongoClient
+import json
 import datetime
-from dotenv import load_dotenv
+import urllib.parse
+from typing import List, Optional, Dict, Any
 
-# Load environment variables from .env file
-load_dotenv()
+LATEST_REPORT_FILE = "competitor_analysis.json"
+HISTORY_FILE = "competitor_analysis_db.reports.json"
 
-# MongoDB Connection
-# Get URI from env, simplified default removed for security/clarity in this context
-MONGO_URI = os.getenv("MONGO_URI")
-if not MONGO_URI:
-    print("Warning: MONGO_URI not found in environment variables.")
-
-DB_NAME = "competitor_analysis_db"
-COLLECTION_NAME = "reports"
-
-def get_db():
-    client = MongoClient(MONGO_URI)
-    return client[DB_NAME]
-
-def save_report_to_db(report_data):
+def get_latest_report_data() -> List[Dict[str, Any]]:
     """
-    Saves the generated report to MongoDB with a timestamp.
+    Reads the latest report data from competitor_analysis.json
     """
-    db = get_db()
-    collection = db[COLLECTION_NAME]
+    if os.path.exists(LATEST_REPORT_FILE):
+        try:
+            with open(LATEST_REPORT_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error reading {LATEST_REPORT_FILE}: {e}")
+    return []
+
+def get_paginated_products(page: int = 1, limit: int = 50, search: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Handles pagination and filtering locally from the JSON file.
+    """
+    data = get_latest_report_data()
     
-    document = {
-        "timestamp": datetime.datetime.utcnow(),
-        "data": report_data,
-        "summary": {
-            "total_items": len(report_data),
-            # Add more summary stats if needed
-        }
+    if search:
+        search_lower = search.lower()
+        data = [
+            item for item in data 
+            if search_lower in str(item.get("name", "")).lower()
+        ]
+    
+    total = len(data)
+    start = (page - 1) * limit
+    end = start + limit
+    
+    paginated_data = data[start:end]
+    
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "data": paginated_data
     }
-    
-    result = collection.insert_one(document)
-    return str(result.inserted_id)
 
-def get_latest_report():
+def get_product_history(product_id: str) -> List[Dict[str, Any]]:
     """
-    Retrieves the most recent report from MongoDB.
+    Retrieves history for a specific product from competitor_analysis_db.reports.json
     """
-    db = get_db()
-    collection = db[COLLECTION_NAME]
+    decoded_id = urllib.parse.unquote(product_id)
+    history = []
     
-    # Sort by timestamp descending and get the first one
-    latest_report = collection.find_one({}, sort=[("timestamp", -1)])
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                all_reports = json.load(f)
+            
+            for report in all_reports:
+                timestamp = report.get("timestamp")
+                # Handle both ISO strings and potential MongoDB-style $date dicts
+                if isinstance(timestamp, dict) and "$date" in timestamp:
+                    timestamp = timestamp["$date"]
+                
+                # Find product in this report
+                products = report.get("data", [])
+                for prod in products:
+                    if prod.get("id") == decoded_id:
+                        history.append({
+                            "timestamp": timestamp,
+                            "br_price": prod.get("br", {}).get("price"),
+                            "lowest_competitor": prod.get("Lowest_Competitor_GBP"),
+                            "competitor_name": prod.get("Competitor_Name"),
+                            "rd": prod.get("rd"),
+                            "deb": prod.get("deb"),
+                            "lr": prod.get("lr"),
+                            "inc": prod.get("inc"),
+                            "hilmi": prod.get("hilmi"),
+                            "hilmi_price": prod.get("hilmi", {}).get("price") if prod.get("hilmi") else None,
+                            "margin_percent": prod.get("margin_percent")
+                        })
+                        break # Found it for this timestamp
+        except Exception as e:
+            print(f"Error reading {HISTORY_FILE}: {e}")
     
-    if latest_report:
-        # Convert ObjectId to string for JSON serialization if needed
-        latest_report['_id'] = str(latest_report['_id'])
-        return latest_report
+    # Sort by timestamp
+    history.sort(key=lambda x: x["timestamp"])
+    return history
+
+# Compatibility placeholders or stubs if needed for main.py imports
+def get_db():
     return None
 
-def get_product_history(product_id):
-    """
-    Retrieves the price history for a specific product ID.
-    Returns a list of snapshots: [{timestamp, br_price, lowest_competitor_price, competitors: []}]
-    """
-    import urllib.parse
-    # Ensure ID is decoded
-    decoded_id = urllib.parse.unquote(product_id)
-    
-    db = get_db()
-    collection = db[COLLECTION_NAME]
-    
-    # Aggregation to find, unwind and filter by product_id
-    # Optimization: Match documents containing the ID *before* unwinding
-    # Use exact match first for speed, if empty, maybe try regex? 
-    # For now, stick to exact match but ensure decoding is correct.
-    pipeline = [
-        {"$match": {"data.id": decoded_id}},
-        {"$unwind": "$data"},
-        {"$match": {"data.id": decoded_id}},
-        {"$project": {
-            "_id": 0,
-            "timestamp": 1,
-            "br_price": "$data.br.price",
-            "lowest_competitor": "$data.Lowest_Competitor_GBP",
-            "competitor_name": "$data.Competitor_Name",
-            "rd": "$data.rd",
-            "deb": "$data.deb",
-            "lr": "$data.lr",
-            "inc": "$data.inc",
-            "hilmi": "$data.hilmi",
-            "hilmi_price": "$data.hilmi.price", # Accessing nested price for history
-            "margin_percent": "$data.margin_percent"
-        }},
-        {"$sort": {"timestamp": 1}}
-    ]
-    
-    try:
-        history = list(collection.aggregate(pipeline))
-        return history
-    except Exception as e:
-        print(f"Error fetching history for {decoded_id}: {e}")
-        return []
+COLLECTION_NAME = "reports"
