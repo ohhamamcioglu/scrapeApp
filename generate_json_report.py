@@ -14,23 +14,9 @@ try:
     df_debenhams = pd.read_csv("debenhams_products.csv") 
     df_loverugs = pd.read_csv("loverugs_products.csv") 
     df_incredible = pd.read_csv("incredible_products.csv")
-    df_hilmi = pd.read_csv("hilmi_prices.csv")
 except Exception as e:
     print(f"Error loading CSVs: {e}")
     exit()
-
-# --- Pre-processing Hilmi Prices ---
-print("Processing Hilmi Prices...")
-hilmi_prices_map = {}
-if 'SKU' in df_hilmi.columns and 'Supplier Price' in df_hilmi.columns:
-    for _, row in df_hilmi.iterrows():
-        sku = str(row['SKU']).strip().upper()
-        try:
-            price = float(str(row['Supplier Price']).replace(',', '').strip())
-            hilmi_prices_map[sku] = price
-        except:
-            continue
-
 
 # --- Normalization Helpers ---
 
@@ -68,15 +54,12 @@ def get_image(row, col_name='image_url'):
     # Helper to safely get image
     if col_name in row and pd.notna(row[col_name]):
         return row[col_name]
-    # For Debenhams, checking 'image_url' column existence
-    # We will check columns dynamically
     return None
 
 # --- Pre-processing DataFrames ---
 
 print("Processing Boutique Rugs...")
 df_boutique['clean_price'] = df_boutique['price'].apply(clean_price)
-# Use the updated normalize_size function
 df_boutique['clean_size'] = df_boutique['variant_title'].apply(lambda x: normalize_size(str(x).split('/')[-1]) if '/' in str(x) else normalize_size(x))
 
 print("Processing Rugs Direct...")
@@ -152,8 +135,7 @@ for idx, b_row in df_boutique.iterrows():
         },
         "rd": None,
         "deb": None,
-        "lr": None,
-        "boutiqrugsNewPrice": None
+        "lr": None
     }
     
     # --- Rugs Direct Match ---
@@ -166,14 +148,11 @@ for idx, b_row in df_boutique.iterrows():
     
     for row in rd_candidates:
         r_title_words = str(row['title']).lower().split(' ')
-        # Enforce that the first word of Boutique title exists in target title (or vice versa is close)
-        # Exception: 'The' or generic words. Assuming simplified first words like 'Kimi', 'Lilian'.
         if b_first_word not in str(row['title']).lower():
-             # Strict check: Kimi != Rivi.
              continue
              
         score = fuzz.token_set_ratio(b_title, row['title'])
-        if score > 65 and score > best_rd_score: # Raised threshold + word check
+        if score > 65 and score > best_rd_score: 
              best_rd_score = score
              best_rd_match = row
              
@@ -191,7 +170,6 @@ for idx, b_row in df_boutique.iterrows():
     best_deb_score = 0
     best_deb_match = None
     for row in deb_candidates:
-        # Debenhams Base Title check
         if b_first_word not in str(row['base_title']).lower():
             continue
 
@@ -254,33 +232,6 @@ for idx, b_row in df_boutique.iterrows():
         item_data["inc"] = None
         item_data["Incredible_Price_USD"] = None
 
-    # --- Hilmi (Supplier) Price Match -> renamed to boutiqrugsNewPrice ---
-    b_sku = str(b_row.get('sku', '')).strip().upper()
-    hilmi_price = None
-    if b_sku in hilmi_prices_map:
-        hilmi_price = hilmi_prices_map[b_sku]
-        item_data["boutiqrugsNewPrice"] = {
-            "price": hilmi_price,
-            "formattedPrice": format_price(hilmi_price),
-            "url": None, # No URL for supplier
-            "image": None,
-            "size": None
-        }
-        
-        # Calculate Margin based on Original Boutique Price vs Hilmi
-        if b_price and hilmi_price and b_price > 0:
-            margin = b_price - hilmi_price
-            margin_percent = (margin / b_price) * 100
-            item_data["margin_gbp"] = round(margin, 2)
-            item_data["margin_percent"] = round(margin_percent, 2)
-        else:
-            item_data["margin_gbp"] = None
-            item_data["margin_percent"] = None
-    else:
-        item_data["boutiqrugsNewPrice"] = None
-        item_data["margin_gbp"] = None
-        item_data["margin_percent"] = None
-
     # --- Analysis & Summary ---
     competitors = []
     if item_data["rd"]: competitors.append( (item_data["rd"]["price"], "RugsDirect") )
@@ -292,12 +243,10 @@ for idx, b_row in df_boutique.iterrows():
         item_data["Lowest_Competitor_GBP"] = min_price
         item_data["Competitor_Name"] = min_comp_name
         
-        # Use boutiqrugsNewPrice as comparison base if available, else original br price
-        comparison_base = item_data["boutiqrugsNewPrice"]["price"] if item_data["boutiqrugsNewPrice"] else b_price
-        
-        if comparison_base:
-            item_data["Price_Difference_GBP"] = round(min_price - comparison_base, 2)
-            item_data["Price_Difference_Percent"] = round(((min_price - comparison_base) / comparison_base) * 100, 2)
+        # Use b_price (Boutique Rugs price) as comparison base
+        if b_price:
+            item_data["Price_Difference_GBP"] = round(min_price - b_price, 2)
+            item_data["Price_Difference_Percent"] = round(((min_price - b_price) / b_price) * 100, 2)
         else:
             item_data["Price_Difference_GBP"] = None
             item_data["Price_Difference_Percent"] = None

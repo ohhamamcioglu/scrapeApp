@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Competitor Price Scraper API", version="2.0", lifespan=lifespan)
 
 SCRIPTS = [
+    "scrape.py",
     "scrape_rugsdirect.py",
     "scrape_debenhams_algolia.py",
     "scrape_loverugs.py"

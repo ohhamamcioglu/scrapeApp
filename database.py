@@ -76,8 +76,6 @@ def get_product_history(product_id: str) -> List[Dict[str, Any]]:
                             "deb": prod.get("deb"),
                             "lr": prod.get("lr"),
                             "inc": prod.get("inc"),
-                            "boutiqrugsNewPrice": prod.get("boutiqrugsNewPrice"),
-                            "boutiqrugsNewPrice_price": prod.get("boutiqrugsNewPrice", {}).get("price") if prod.get("boutiqrugsNewPrice") else None,
                             "margin_percent": prod.get("margin_percent")
                         })
                         break # Found it for this timestamp
